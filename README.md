@@ -43,7 +43,7 @@ The following commands should be sufficient to compile the project:
 
 ```bash
 git clone --branch release --single-branch https://github.com/hayleycloud/currently-fronting
-cd plural-frontline
+cd currently-fronting
 cmake -S . -B build -DCMAKE_BUILD_TYPE="Release"
 cmake --build build
 ```
@@ -113,4 +113,10 @@ Then copy this string of terrors into the `token` field of the Simply Plural par
 
 [example img]
 
+
+## TODO
+
+* Integrate PluralKit support
+* Proper error handling and reporting
+* Windows and MacOS support
 

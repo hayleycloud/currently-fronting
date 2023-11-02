@@ -28,3 +28,5 @@ add_executable(CurrentlyFronting
 	src/external/cJSON.c)
 target_link_libraries(CurrentlyFronting curl discord_lib m)
 set_target_properties(CurrentlyFronting PROPERTIES OUTPUT_NAME fronting)
+
+install(TARGETS CurrentlyFronting RUNTIME DESTINATION bin)
