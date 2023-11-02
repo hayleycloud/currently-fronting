@@ -1,0 +1,12 @@
+Source: currently-fronting
+Section: misc
+Priority: optional
+Standards-Version: 
+Build-Depends: cmake
+
+Package: fronting
+Architecture: any
+Depends: 
+Description: Plural fronting utility for Discord
+	A tool for plurals for presenting fronting information to Discord through the activity/presence feature
+

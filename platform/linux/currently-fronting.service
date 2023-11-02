@@ -1,0 +1,7 @@
+[Unit]
+Description=Currently Fronting
+
+[Service]
+Type=oneshot
+
+

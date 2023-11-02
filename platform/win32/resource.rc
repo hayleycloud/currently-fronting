@@ -1,0 +1,30 @@
+#include <winres.h>
+
+IDC_ICON ICON "fronting.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEOS VOS__WINDOWS32
+FILETYPE VFT_APP
+{
+    BLOCK "StringFileInfo"
+    {
+        BLOCK "040904E4"
+        {
+            VALUE "CompanyName",      "Plural Tools"
+            VALUE "FileDescription",  "Currently Fronting Discord Tool"
+            VALUE "FileVersion",      "1.0.0.0"
+            VALUE "InternalName",     "fronting.exe"
+            VALUE "LegalCopyright",   "Public Domain"
+            VALUE "OriginalFilename", "fronting.exe"
+            VALUE "ProductName",      "Currently Fronting"
+            VALUE "ProductVersion",   "1.0.0.0"
+        }
+    }
+
+    BLOCK "VarFileInfo"
+    {
+        VALUE "Translation", 0x409, 1252
+    }
+}

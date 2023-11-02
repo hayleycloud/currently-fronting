@@ -1,0 +1,29 @@
+pkgname=currently-fronting
+pkver=0.2.0
+pkgrel=1
+pkgdesc="Utility for showing plural fronting status on Discord."
+arch=('any')
+url="https://github.com/hayleycloud/currently-fronting"
+license=('custom')
+depends=('curl')
+makedepends=('cmake')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/hayleycloud/currently-fronting/archive/refs/tags/v${pkgver}.tar.gz")
+md5sums=()
+
+prepare() {
+
+}
+
+build() {
+	cmake -B build -S "$pkgname-$pkgver" \
+		-DCMAKE_BUILD_TYPE='None' \
+		-DCMAKE_INSTALL_PREFIX='/usr' \
+		-Wno-dev
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+
+	cp "$srcdir/platform/linux/currently-fronting.service" "$pkgdir/etc/systemd/system/currently-fronting.service"
+}

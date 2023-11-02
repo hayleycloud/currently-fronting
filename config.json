@@ -1,0 +1,18 @@
+{
+	"core": {
+		"show_pronouns": true,
+		"source": "simply_plural",
+		"avatar_mode": "member",
+		"icon_mode": "",
+		"show_source": true,
+		"discord_poll_rate": 5
+	},
+	"pluralkit": {
+		"token": "",
+		"poll_rate": 15
+	},
+	"simply_plural": {
+		"token": "",
+		"poll_rate": 15
+	}
+}

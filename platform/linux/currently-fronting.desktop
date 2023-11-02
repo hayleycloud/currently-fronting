@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Currently Fronting
+Comment=Utility for showing fronting information on Discord
+Icon=fronting
+Exec=/usr/bin/fronting
+Categories=Utility
+X-GNOME-Autostart-enabled=true
+Name[en_GB]=currently-fronting.desktop
