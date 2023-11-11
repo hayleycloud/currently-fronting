@@ -7,13 +7,13 @@
 #define SP_API_URI		"https://api.apparyllis.com/v1/"
 #define SP_SRV_URI		"https://serve.apparyllis.com/"
 
-void make_sp_api_url(char* url_out, const char* endpoint)
+void make_sp_api_url(char *url_out, const char *endpoint)
 {
 	strcpy(url_out, SP_API_URI);
 	strcat(url_out, endpoint);
 }
 
-void make_sp_serve_url(char* url_out, const char* uri)
+void make_sp_serve_url(char *url_out, const char *uri)
 {
 	strcpy(url_out, SP_SRV_URI);
 	strcat(url_out, uri);
@@ -42,7 +42,23 @@ void sp_destroy(struct SimplyPluralInstance *sp)
 	curl_global_cleanup();
 }
 
-cJSON* fetch_fronters_data(const struct SimplyPluralInstance *sp)
+cJSON* sp_fetch_system_data(const struct SimplyPluralInstance *sp)
+{
+	assert(sp);
+
+	const char *headers = sp->auth;
+
+	char endpoint[MAX_URL_SIZE];
+	char url[MAX_URL_SIZE];
+
+	strcpy(endpoint, "me");
+	make_sp_api_url(url, endpoint);
+
+	//printf("%s\r\n", cJSON_Print(cJSON_Parse(request_web_page(sp->curl, url, &headers, 1))));
+	return cJSON_Parse(request_web_page(sp->curl, url, &headers, 1));
+}
+
+cJSON* sp_fetch_fronters_data(const struct SimplyPluralInstance *sp)
 {
 	assert(sp);
 
@@ -70,6 +86,7 @@ cJSON* fetch_member_data(
 	sprintf(endpoint, "member/%s/%s", systemid, memberid);
 	make_sp_api_url(url, endpoint);
 
+	//printf("%s\r\n", cJSON_Print(cJSON_Parse(request_web_page(sp->curl, url, &headers, 1))));
 	return cJSON_Parse(request_web_page(sp->curl, url, &headers, 1));
 }
 
@@ -164,8 +181,8 @@ void free_fronter_ids(int size, char **member_ids)
 	free(member_ids);
 }
 
-enum ReturnStatus get_member_str_from(
-	char **data_out, cJSON *member_data, const char *field_name)
+enum ReturnStatus sp_get_member_str_from(
+	char **data_out, const cJSON *member_data, const char *field_name)
 {
 	assert(data_out && member_data && field_name);
 
@@ -195,6 +212,9 @@ char* avatar_uuid_to_url(const char *systemid, char *uuid)
 
 	const size_t url_len = 
 		strlen(SP_SRV_URI) + strlen(systemid) + strlen(uuid) + 10;
+
+	if(strlen(uuid) == 0)
+		return NULL;
 
 	char* url = (char*) malloc(sizeof(char) * url_len);
 
@@ -238,17 +258,21 @@ enum ReturnStatus get_member_info(
 	member->type = EMemberType_Headmate;
 	
 	// Require a name for our members!
-	if(get_member_str_from(&member->name, member_data, "name")
+	if(sp_get_member_str_from(&member->name, member_data, "name")
 		!= ReturnStatus_Ok)
+	{
+		cJSON_Delete(member_data);
 		return ReturnStatus_Error;
+	}
 
 	// Pronouns are optional, so let NULLs sit
-	get_member_str_from(&member->pronouns, member_data, "pronouns");
+	sp_get_member_str_from(&member->pronouns, member_data, "pronouns");
 
 	// Avatars are optional, so let NULLs sit
-	get_member_str_from(&member->avatar_url, member_data, "avatarUuid");
+	sp_get_member_str_from(&member->avatar_url, member_data, "avatarUuid");
 	member->avatar_url = handle_avatar_location(systemid, member->avatar_url);
 
+	cJSON_Delete(member_data);
 	return ReturnStatus_Ok;
 }
 
@@ -269,13 +293,18 @@ enum ReturnStatus get_customfront_info(
 	member->type = EMemberType_State;
 	
 	// Require a name for our members!
-	if(get_member_str_from(&member->name, member_data, "name")
+	if(sp_get_member_str_from(&member->name, member_data, "name")
 		!= ReturnStatus_Ok)
+	{
+		cJSON_Delete(member_data);
 		return ReturnStatus_Error;
+	}
 
 	// Avatars are optional, so let NULLs sit
-	get_member_str_from(&member->avatar_url, member_data, "avatarUuid");
+	sp_get_member_str_from(&member->avatar_url, member_data, "avatarUuid");
 	member->avatar_url = handle_avatar_location(systemid, member->avatar_url);
+
+	cJSON_Delete(member_data);
 
 	return ReturnStatus_Ok;
 }
@@ -289,17 +318,23 @@ const int sp_get_fronters(
 
 	char systemid[SP_SYSTEMID_SIZE];
 
-	cJSON *fronters_data = fetch_fronters_data(sp);
+	cJSON *fronters_data = sp_fetch_fronters_data(sp);
 	if(!fronters_data)
 		return -1;
 
 	if(get_uid_from(systemid, fronters_data) != ReturnStatus_Ok)
+	{
+		cJSON_Delete(fronters_data);
 		return -1;
+	}
 
 	char **fronter_ids;
 	int num_fronters = get_fronter_ids_from(&fronter_ids, fronters_data);
 	if(num_fronters < 0)
+	{
+		cJSON_Delete(fronters_data);
 		return -1;
+	}
 
 	*fronters_out = (struct MemberInfo*) calloc(
 		num_fronters, sizeof(struct MemberInfo));
@@ -319,6 +354,7 @@ const int sp_get_fronters(
 	}
 
 	free_fronter_ids(num_fronters, fronter_ids);
+	cJSON_Delete(fronters_data);
 
 	return num_fronters;
 }
@@ -326,4 +362,64 @@ const int sp_get_fronters(
 void sp_free_fronters(struct MemberInfo* fronters, const int num_fronters)
 {
 	free(fronters);
+}
+
+enum ReturnStatus sp_get_system_str_from(
+	char **data_out, const cJSON *system_data, const char *field_name)
+{
+	assert(data_out && system_data && field_name);
+
+	const cJSON *content, *data;
+
+	if(!cJSON_IsObject(system_data))
+		return ReturnStatus_Error;
+
+	content = cJSON_GetObjectItemCaseSensitive(system_data, "content");
+	if(!cJSON_IsObject(content))
+		return ReturnStatus_Error;
+
+	data = cJSON_GetObjectItemCaseSensitive(content, field_name);
+	if(!cJSON_IsString(data))
+		return ReturnStatus_Error;
+
+	size_t data_len = strlen(data->valuestring);
+	*data_out = (char*) malloc(sizeof(char) * (data_len + 1));
+	strcpy(*data_out, data->valuestring);
+
+	return ReturnStatus_Ok;
+}
+
+enum ReturnStatus sp_get_system(
+	struct SystemInfo *system, const struct SimplyPluralInstance *sp)
+{
+	assert(sp);
+	assert(system);
+	
+	cJSON *data = sp_fetch_system_data(sp);
+
+	if(sp_get_system_str_from(&system->name, data, "username")
+		!= ReturnStatus_Ok)
+	{
+		cJSON_Delete(data);
+		return ReturnStatus_Error;
+	}
+
+	char* systemid;
+	if(sp_get_system_str_from(&systemid, data, "uid")
+		!= ReturnStatus_Ok)
+	{
+		cJSON_Delete(data);
+		return ReturnStatus_Error;
+	}
+
+	if(sp_get_system_str_from(&system->avatar_url, data, "avatarUuid")
+		== ReturnStatus_Ok)
+	{
+		system->avatar_url = handle_avatar_location(
+			systemid, system->avatar_url);
+	}
+
+	cJSON_Delete(data);
+
+	return ReturnStatus_Ok;
 }

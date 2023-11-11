@@ -1,7 +1,6 @@
 #pragma once
 
 #include "common.h"
-#include "system.h"
 #include "external/discord_game_sdk.h"
 
 #define DISCORD_FIELD_SIZE		128
@@ -12,7 +11,13 @@ struct DiscordInstance {
 	struct IDiscordApplicationManager *application;
 };
 
+enum EDiscordResult discord_status();
+
+const char* discord_error();
+
 enum ReturnStatus connect_to_discord(struct DiscordInstance *instance);
+
+void destroy_discord(struct DiscordInstance *instance);
 
 struct DiscordInstance* init_connect_to_discord();
 

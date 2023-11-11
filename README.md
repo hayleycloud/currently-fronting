@@ -3,7 +3,6 @@
 Lightweight utility for showing plural fronting status on Discord via the activity/presence display.
 
 ## Table of Contents
-* [License](#license)
 * [Usage](#usage)
     * [Introduction](#introduction)
     * [Installation](#installing)
@@ -13,10 +12,8 @@ Lightweight utility for showing plural fronting status on Discord via the activi
         * [Core Options](#core-options)
         * [Linking To *PluralKit*](#linking-to-pluralkit)
         * [Linking To *SimplyPlural*](#linking-to-simplyplural)
-
-
-## License
-
+* [License](#license)
+* [TODO](#todo)
 
 ## Usage
 
@@ -113,10 +110,39 @@ Then copy this string of terrors into the `token` field of the Simply Plural par
 
 [example img]
 
+## License
+
+Copyright (c) 2023 Hayleycloud
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ## TODO
 
 * Integrate PluralKit support
+* Discord won't link avatar assets via HTTPS, so attempt to force HTTP
+* Integrate manual mode
+* Memory leaks!
+    * Config file text allocated but not freed
+    * Member/System data allocated but not freed
+    * CURL not cleaned up
+    * cJSON! i.e. print and parse!
+    * Avatar URLs cannot be longer than 128
 * Proper error handling and reporting
 * Windows and MacOS support
 

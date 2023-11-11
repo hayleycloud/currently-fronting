@@ -2,9 +2,8 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <limits.h>
 #include <assert.h>
-
-//#define 
 
 #if defined(__APPLE__)
 #define PLATFORM 	MACOS
@@ -28,4 +27,21 @@ enum ReturnStatus {
 
 size_t file_sizeof(FILE *file);
 size_t read_txt_file(char **data_out, const char *path);
-enum ReturnStatus write_txt_file(char *data_in, const char *path);
+enum ReturnStatus write_txt_file(const char *data_in, const char *path);
+
+struct SystemInfo {
+	char *name;
+	char *avatar_url;
+};
+
+enum EMemberType {
+	EMemberType_Headmate,
+	EMemberType_State
+};
+
+struct MemberInfo {
+	enum EMemberType type;
+	char *name;
+	char *pronouns;
+	char *avatar_url;
+};

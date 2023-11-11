@@ -25,6 +25,7 @@ add_executable(CurrentlyFronting
 	src/discord.c
 	src/pluralkit.c
 	src/simplyplural.c
+	src/manual.c
 	src/external/cJSON.c)
 target_link_libraries(CurrentlyFronting curl discord_lib m)
 set_target_properties(CurrentlyFronting PROPERTIES OUTPUT_NAME fronting)

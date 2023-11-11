@@ -1,13 +1,29 @@
 #include "config.h"
-#include "system.h"
 #include "discord.h"
 #include "simplyplural.h"
+#include "pluralkit.h"
+#include "manual.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 
 // TODO: Host elsewhere pls
 #define APP_ICON_URL 	"http://hayley.byethost33.com/fronting-64.png"
+
+char* force_http(char *url)
+{
+	// Test if HTTPS
+	if(url && url == strstr(url, "https://"))
+	{
+		char uri[DISCORD_FIELD_SIZE];
+		strcpy(uri, url + 8);	// url minus the https://
+
+		strcpy(url, "http://");
+		strcat(url, uri);
+	}
+
+	return url;
+}
 
 bool get_fronter_icon(
 	char *image,
@@ -22,7 +38,7 @@ bool get_fronter_icon(
 		return false;
 
 	// Use the avatar of the first fronter
-	if(strcmp(fronters[0].avatar_url, "") != 0)
+	if(fronters[0].avatar_url && (strcmp(fronters[0].avatar_url, "") != 0))
 	{
 		strcpy(image, fronters[0].avatar_url);
 		strcpy(text, fronters[0].name);
@@ -38,6 +54,28 @@ bool get_fronter_icon(
 			strcpy(text, fronters[i].name);
 			break;
 		}
+	}
+
+	if(strlen(image) == 0)
+		return false;
+
+	image = force_http(image);
+
+	return true;
+}
+
+bool get_system_icon(char *image, char *text, const struct SystemInfo *system)
+{
+	assert(image && text);
+	assert(system);
+
+	// Use the avatar of the first fronter
+	if(strcmp(system->avatar_url, "") != 0)
+	{
+		strcpy(image, system->avatar_url);
+		strcpy(text, system->name);
+
+		image = force_http(image);
 	}
 
 	return true;
@@ -70,8 +108,7 @@ enum ReturnStatus get_large_icon(
 		}
 		case EAvatarMode_System:
 		{
-			strcpy(large_image, system->avatar_url);
-			strcpy(large_text, system->name);
+			get_system_icon(large_image, large_text, system);
 		}
 		break;
 		case EAvatarMode_App:
@@ -103,14 +140,35 @@ enum ReturnStatus get_small_icon(
 		break;
 		case EIconMode_System:
 		{
-			strcpy(small_image, system->avatar_url);
-			strcpy(small_text, system->name);
+			get_system_icon(small_image, small_text, system);
 		}
 		break;
 		case EIconMode_NoIcon:
 	}
 
 	return ReturnStatus_Ok;
+}
+
+char* get_name_entry(const struct MemberInfo *member, bool show_pronouns)
+{
+	assert(member);
+	
+	if(!show_pronouns || !member->pronouns || (strlen(member->pronouns) == 0))
+	{
+		char *new_str = (char*) malloc(
+			(strlen(member->name) + 1) * sizeof(char));
+		strcpy(new_str, member->name);
+		return new_str;
+	}
+
+	assert(member->pronouns);
+
+	char* new_str = (char*) malloc(
+		(strlen(member->name) + strlen(member->pronouns) + 4) * sizeof(char));
+
+	sprintf(new_str, "%s (%s)", member->name, member->pronouns);
+
+	return new_str;
 }
 
 enum ReturnStatus send_to_discord(
@@ -134,13 +192,15 @@ enum ReturnStatus send_to_discord(
 
 	// Fill out the activity fronting line
 	if(num_fronters == 0)
-		strcpy(activity.details, "[Nobody Fronting]");
+		strcpy(activity.details, "[Nobody]");
 	else
 		strcpy(activity.details, "");
 
 	for(int i = 0; i < num_fronters; ++i)
 	{
-		strcat(activity.details, fronters[i].name);
+		char *name_entry = get_name_entry(&fronters[i], config->show_pronouns);
+		strcat(activity.details, name_entry);
+		free(name_entry);
 
 		if((i == 0) && (num_fronters == 2))	// Headmate_1 & Headmate_2
 			strcat(activity.details, " & ");
@@ -171,6 +231,8 @@ enum ReturnStatus send_to_discord(
 	set_discord_activity(discord, &activity);
 
 	printf("done.\r\n");
+
+	return ReturnStatus_Ok;
 }
 
 enum ReturnStatus handle_simplyplural(
@@ -191,11 +253,19 @@ enum ReturnStatus handle_simplyplural(
 
 	while(1)
 	{
+		if(sp_get_system(&system, &sp) == ReturnStatus_Error)
+			fprintf(stderr, 
+				"Error fetching system info from Simply Plural.\r\n");
+
+		printf(
+			"System Info:\r\n\tName: %s\r\n\tAvatar URL: %s\r\n",
+			system.name, system.avatar_url);
+
 		struct MemberInfo *fronters;
 		const int num_fronters = sp_get_fronters(&fronters, &sp);
 		if(num_fronters < 0)
 		{
-			printf("Error fetching fronters from Simply Plural.\r\n");
+			fprintf(stderr, "Error fetching fronters from Simply Plural.\r\n");
 			SLEEP_SECS(60);
 			continue;
 		}
@@ -221,9 +291,93 @@ enum ReturnStatus handle_simplyplural(
 			return ReturnStatus_Error;
 		}
 
+		printf("\r\n");
+
 		for(int i = 0; i < sp_ticks; ++i)
 		{
-			discord_callbacks(discord);
+			if(discord_callbacks(discord) != ReturnStatus_Ok)
+			{
+				if(discord_status() != DiscordResult_Ok)
+				{
+					fprintf(stderr, "Discord Error: %s\r\n", discord_error());
+					return ReturnStatus_Ok;
+				}
+			}
+			SLEEP_SECS(config->discord_poll_rate);
+		}
+	}
+
+	return ReturnStatus_Ok;
+}
+
+enum ReturnStatus handle_pluralkit(
+	const struct Configuration *config, struct DiscordInstance *discord)
+{
+	assert(config && discord);
+
+	const int pk_ticks = (int) ceil((double)config->pk_config.polling_rate 
+		/ (double)config->discord_poll_rate);
+
+	struct SystemInfo system;
+	struct PluralKitInstance pk;
+	if(pk_init(&pk, config->pk_config.token) != ReturnStatus_Ok)
+	{
+		fprintf(stderr, "Failed to initialize PluralKit module!\r\n");
+		return EXIT_FAILURE;
+	}
+
+	while(1)
+	{
+		if(pk_get_system(&system, &pk) == ReturnStatus_Error)
+			fprintf(stderr, 
+				"Error fetching system info from PluralKit.\r\n");
+
+		printf(
+			"System Info:\r\n\tName: %s\r\n\tAvatar URL: %s\r\n",
+			system.name, system.avatar_url);
+
+		struct MemberInfo *fronters;
+		const int num_fronters = pk_get_fronters(&fronters, &pk);
+		if(num_fronters < 0)
+		{
+			fprintf(stderr, "Error fetching fronters from PluralKit.\r\n");
+			SLEEP_SECS(60);
+			continue;
+		}
+
+		printf("Current Fronters:\r\n");
+
+		const int last_front_index = num_fronters - 1;
+		for(int i = 0; i < num_fronters; ++i)
+		{
+			printf("\t%s:\r\n", fronters[i].name); 
+			printf(
+				"\t\tType: %s\r\n", 
+				fronters[i].type == EMemberType_State ? 
+					"State" : "Headmate");
+			printf("\t\tPronouns: %s\r\n", fronters[i].pronouns);
+			printf("\t\tAvatar URL: %s\r\n", fronters[i].avatar_url);
+		}
+
+		if(send_to_discord(
+			discord, config, &system, fronters, num_fronters)
+				!= ReturnStatus_Ok)
+		{
+			return ReturnStatus_Error;
+		}
+
+		printf("\r\n");
+
+		for(int i = 0; i < pk_ticks; ++i)
+		{
+			if(discord_callbacks(discord) != ReturnStatus_Ok)
+			{
+				if(discord_status() != DiscordResult_Ok)
+				{
+					fprintf(stderr, "Discord Error: %s\r\n", discord_error());
+					return ReturnStatus_Ok;
+				}
+			}
 			SLEEP_SECS(config->discord_poll_rate);
 		}
 	}
@@ -235,9 +389,16 @@ enum ReturnStatus handle_simplyplural(
 struct Arguments {
 	enum ETask {
 		ETask_Normal,
+
 		ETask_ServiceEnable,
 		ETask_ServiceDisable,
-		ETask_ServiceMode
+		ETask_ServiceMode,
+
+		ETask_AddFront,
+		ETask_RemoveFront,
+		ETask_AddMember,
+		ETask_RemoveMember,
+		ETask_ModifyMember
 	} task;
 };
 
@@ -255,6 +416,17 @@ struct Arguments parse_program_arguments(int argc, const char **argv)
 			args.task = ETask_ServiceDisable;
 		else if(!strcmp(argv[1], "service"))
 			args.task = ETask_ServiceMode;
+
+		else if(!strcmp(argv[1], "add-front"))
+			args.task = ETask_AddFront;
+		else if(!strcmp(argv[1], "remove-front"))
+			args.task = ETask_RemoveFront;
+		else if(!strcmp(argv[1], "add-member"))
+			args.task = ETask_AddMember;
+		else if(!strcmp(argv[1], "remove-member"))
+			args.task = ETask_RemoveMember;
+		else if(!strcmp(argv[1], "edit-member"))
+			args.task = ETask_ModifyMember;
 	}
 
 	return args;
@@ -266,19 +438,31 @@ int main(int argc, const char **argv)
 
 	if(args.task == ETask_ServiceEnable)
 	{
-		int ret = enable_service();
+		enum ReturnStatus ret = enable_service();
 		if(ret == ReturnStatus_Ok)
+		{
+			printf("Service Mode enabled.\r\n");
 			return EXIT_SUCCESS;
+		}
 		else
+		{
+			printf("Could not enable service mode!\r\n");
 			return EXIT_FAILURE;
+		}
 	}
 	else if(args.task == ETask_ServiceDisable)
 	{
-		int ret = disable_service();
+		enum ReturnStatus ret = disable_service();
 		if(ret == ReturnStatus_Ok)
+		{
+			printf("Service Mode disabled.\r\n");
 			return EXIT_SUCCESS;
+		}
 		else
+		{
+			printf("Could not disable service mode!\r\n");
 			return EXIT_FAILURE;
+		}
 	}
 
 	// First, load the configuration file
@@ -286,7 +470,7 @@ int main(int argc, const char **argv)
 	memset((void*)&config, 0, sizeof(config));
 	if(load_config(&config) == ReturnStatus_Error)
 	{
-		printf("Error loading config file!\r\n");
+		fprintf(stderr, "Error loading config file!\r\n");
 		return EXIT_FAILURE;
 	}
 
@@ -322,6 +506,9 @@ int main(int argc, const char **argv)
 			case ESource_PluralKit:
 			{
 				printf("Using PluralKit.\r\n");
+
+				if(handle_pluralkit(&config, discord) != ReturnStatus_Ok)
+					return EXIT_FAILURE;
 			}
 			break;
 			case ESource_Manual:
@@ -330,6 +517,8 @@ int main(int argc, const char **argv)
 			}
 			break;
 		}
+
+		destroy_discord(discord);
 	}
 
 	return EXIT_SUCCESS;

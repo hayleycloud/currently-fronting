@@ -1,18 +1,16 @@
+# Maintainer: Hayleycloud <hayleycloud@hotmail.com>
 pkgname=currently-fronting
-pkver=0.2.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Utility for showing plural fronting status on Discord."
 arch=('any')
 url="https://github.com/hayleycloud/currently-fronting"
-license=('custom')
+license=('MIT')
 depends=('curl')
 makedepends=('cmake')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/hayleycloud/currently-fronting/archive/refs/tags/v${pkgver}.tar.gz")
-md5sums=()
-
-prepare() {
-
-}
+#source=("${pkgname}-${pkgver}.tar.gz::git+ssh://git@github.com/hayleycloud/currently-fronting/archive/refs/tags/v${pkgver}.tar.gz")
+sha512sums=('4ef723fb45cdaa7b654e8d584c8dcd4c00b628f94327fb7fc2df2d43c9fcd17e3fbe25e870935b4a958210b85423cf1cc1c05ea4beaa50e66557c7d16e5032a4')
 
 build() {
 	cmake -B build -S "$pkgname-$pkgver" \
@@ -25,5 +23,7 @@ build() {
 package() {
 	DESTDIR="$pkgdir" cmake --install build
 
-	cp "$srcdir/platform/linux/currently-fronting.service" "$pkgdir/etc/systemd/system/currently-fronting.service"
+	install -Dm 0644 "$srcdir/$pkgname-$pkgver/platform/linux/currently-fronting.service" "$pkgdir/etc/systemd/system/currently-fronting.service"
+
+	install -Dm 0644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

@@ -16,6 +16,10 @@ struct PluralKitConfig {
 	unsigned int polling_rate;
 };
 
+struct ManualConfig {
+	char filepath[PATH_MAX];
+};
+
 enum ESource {
 	ESource_Manual,
 	ESource_SimplyPlural,
@@ -49,6 +53,7 @@ struct Configuration {
 
 	struct PluralKitConfig pk_config;
 	struct SimplyPluralConfig sp_config;
+	struct ManualConfig mnl_config;
 };
 
 enum ReturnStatus load_config(struct Configuration *config_out);

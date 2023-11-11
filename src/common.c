@@ -21,16 +21,20 @@ size_t read_txt_file(char **data_out, const char *path)
 
 	fread((void*)*data_out, sizeof(char), size, file);
 
+	fclose(file);
+
 	return size;
 }
 
-enum ReturnStatus write_txt_file(char *data_in, const char *path)
+enum ReturnStatus write_txt_file(const char *data_in, const char *path)
 {
 	FILE *file = fopen(path, "w");
 	if(!file)
 		return ReturnStatus_Error;
 
 	fwrite((const void*)data_in, sizeof(char), strlen(data_in), file);
+
+	fclose(file);
 
 	return ReturnStatus_Ok;
 }

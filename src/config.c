@@ -144,21 +144,35 @@ enum ReturnStatus read_pluralkit_settings(
 	assert(config_out && data);
 
 	if(!cJSON_IsObject(data))
+	{
+		fprintf(stderr, "Config Error: Invalid JSON root object.\r\n");
 		return ReturnStatus_Error;
+	}
 
 	const cJSON *pk_data = cJSON_GetObjectItemCaseSensitive(
 		data, "pluralkit");
 	if(!cJSON_IsObject(pk_data))
+	{
+		fprintf(stderr, "Config Error: 'pluralkit' not an object.\r\n");
 		return ReturnStatus_Error;
+	}
 
 	const cJSON *token = cJSON_GetObjectItemCaseSensitive(pk_data, "token");
 	if(!cJSON_IsString(token))
+	{
+		fprintf(stderr, 
+			"Config Error: 'pluralkit/token' not a valid string.\r\n");
 		return ReturnStatus_Error;
+	}
 
 	const cJSON *poll_data = cJSON_GetObjectItemCaseSensitive(
 		pk_data, "poll_rate");
 	if(!cJSON_IsNumber(poll_data))
+	{
+		fprintf(stderr,
+			"Config Error: 'pluralkit/poll_rate' not an integer.\r\n");
 		return ReturnStatus_Error;
+	}
 	else
 		config_out->pk_config.polling_rate = poll_data->valueint;
 
@@ -176,21 +190,35 @@ enum ReturnStatus read_simplyplural_settings(
 	assert(config_out && data);
 
 	if(!cJSON_IsObject(data))
+	{
+		fprintf(stderr, "Config Error: Invalid JSON root object.\r\n");
 		return ReturnStatus_Error;
+	}
 
 	const cJSON *sp_data = cJSON_GetObjectItemCaseSensitive(
 		data, "simply_plural");
 	if(!cJSON_IsObject(sp_data))
+	{
+		fprintf(stderr, "Config Error: 'simply_plural' not an object.\r\n");
 		return ReturnStatus_Error;
+	}
 
 	const cJSON *token = cJSON_GetObjectItemCaseSensitive(sp_data, "token");
 	if(!cJSON_IsString(token))
+	{
+		fprintf(stderr, 
+			"Config Error: 'simply_plural/token' not a valid string.\r\n");
 		return ReturnStatus_Error;
+	}
 
 	const cJSON *poll_data = cJSON_GetObjectItemCaseSensitive(
 		sp_data, "poll_rate");
 	if(!cJSON_IsNumber(poll_data))
+	{
+		fprintf(stderr, 
+			"Config Error: 'simply_plural/poll_rate' not an integer.\r\n");
 		return ReturnStatus_Error;
+	}
 	else
 		config_out->sp_config.polling_rate = poll_data->valueint;
 
@@ -207,25 +235,81 @@ enum ReturnStatus load_config(struct Configuration *config_out)
 	char config_path[FILENAME_MAX];
 	get_config_path(config_path);
 
-	const cJSON *file_data = load_config_json(config_path);
+	cJSON *file_data = load_config_json(config_path);
 	if(!file_data)
+	{
+		fprintf(stderr, "Config Error: Could not read %s\r\n", config_path);
 		return ReturnStatus_Error;
+	}
 
 	const cJSON *core_data = cJSON_GetObjectItemCaseSensitive(file_data, "core");
+	if(!core_data)
+	{
+		fprintf(stderr, "Config Error: No 'core' object found.\r\n");
+		cJSON_Delete(file_data);
+		return ReturnStatus_Error;
+	}
 
-	read_config_source(config_out, core_data);
-	read_config_avatar_mode(config_out, core_data);
-	read_config_show_pronouns(config_out, core_data);
+	if(read_config_source(config_out, core_data) == ReturnStatus_Error)
+	{
+		fprintf(stderr, 
+			"Config Error: 'core/source' must be either %s, %s, or %s.\r\n",
+			SOURCE_ID_SIMPLYPLURAL, SOURCE_ID_PLURALKIT, SOURCE_ID_MANUAL);
+		cJSON_Delete(file_data);
+		return ReturnStatus_Error;
+	}
+
+	if(read_config_avatar_mode(config_out, core_data) == ReturnStatus_Error)
+	{
+		fprintf(stderr, 
+			"Config Error: 'core/avatar_mode' must be either "
+			"%s, %s, %s, %s, or empty.\r\n",
+			AVATARMODE_ID_MEMBERSYSTEM,
+			AVATARMODE_ID_MEMBER,
+			AVATARMODE_ID_SYSTEM,
+			AVATARMODE_ID_APP);
+		cJSON_Delete(file_data);
+		return ReturnStatus_Error;
+	}
+
+	if(read_config_show_pronouns(config_out, core_data) == ReturnStatus_Error)
+	{
+		fprintf(stderr,
+			"Config Error: 'core/show_pronouns' must be true or false.\r\n");
+		cJSON_Delete(file_data);
+		return ReturnStatus_Error;
+	}
 
 	const cJSON *poll_data = cJSON_GetObjectItemCaseSensitive(
 		core_data, "discord_poll_rate");
 	if(!cJSON_IsNumber(poll_data))
+	{
+		fprintf(stderr, 
+			"Config Error: 'core/discord_poll_rate' not a number!\r\n");
+		cJSON_Delete(file_data);
 		return ReturnStatus_Error;
+	}
 	else
 		config_out->discord_poll_rate = poll_data->valueint;
 	
-	read_simplyplural_settings(config_out, file_data);
-	read_pluralkit_settings(config_out, file_data);
+	if(config_out->source == ESource_SimplyPlural)
+	{
+		if(read_simplyplural_settings(config_out, file_data) != ReturnStatus_Ok)
+		{
+			cJSON_Delete(file_data);
+			return ReturnStatus_Error;
+		}
+	}
+	else if(config_out->source == ESource_PluralKit)
+	{
+		if(read_pluralkit_settings(config_out, file_data) != ReturnStatus_Ok)
+		{
+			cJSON_Delete(file_data);
+			return ReturnStatus_Error;
+		}
+	}
+
+	cJSON_Delete(file_data);
 
 	return ReturnStatus_Ok;
 }
@@ -235,12 +319,12 @@ enum ReturnStatus create_config()
 	char config_path[FILENAME_MAX];
 	get_config_path(config_path);
 
-	char initial_config[] = 
+	const char initial_config[] = 
 		"{\r\n\
 		\t\"core\": {\r\n\
 		\t\t\"show_pronouns\": false,\r\n\
 		\t\t\"source\": \"simply_plural\",\r\n\
-		\t\t\"avatar_mode\": \"member\",\r\n\
+		\t\t\"avatar_mode\": \"member_sys\",\r\n\
 		\t\t\"icon_mode\": \"\",\r\n\
 		\t\t\"discord_poll_rate\": \"5\"\r\n\
 		\t},\r\n\
