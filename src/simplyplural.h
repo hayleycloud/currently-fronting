@@ -21,3 +21,4 @@ enum ReturnStatus sp_get_system(
 
 const int sp_get_fronters(
 	struct MemberInfo **fronters_out, const struct SimplyPluralInstance *sp);
+

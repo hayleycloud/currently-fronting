@@ -235,6 +235,26 @@ enum ReturnStatus send_to_discord(
 	return ReturnStatus_Ok;
 }
 
+void free_fronters(struct MemberInfo* fronters, const int num_fronters)
+{
+	for(int i = 0; i < num_fronters; ++i)
+	{
+		free(fronters[i].name);
+		free(fronters[i].pronouns);
+		free(fronters[i].avatar_url);
+	}
+
+	free(fronters);
+}
+
+void free_system(struct SystemInfo* system)
+{
+	assert(system);
+
+	free(system->name);
+	free(system->avatar_url);
+}
+
 enum ReturnStatus handle_simplyplural(
 	const struct Configuration *config, struct DiscordInstance *discord)
 {
@@ -266,6 +286,7 @@ enum ReturnStatus handle_simplyplural(
 		if(num_fronters < 0)
 		{
 			fprintf(stderr, "Error fetching fronters from Simply Plural.\r\n");
+			free_system(&system);
 			SLEEP_SECS(60);
 			continue;
 		}
@@ -288,6 +309,9 @@ enum ReturnStatus handle_simplyplural(
 			discord, config, &system, fronters, num_fronters)
 				!= ReturnStatus_Ok)
 		{
+			free_system(&system);
+			free_fronters(fronters, num_fronters);
+			sp_destroy(&sp);
 			return ReturnStatus_Error;
 		}
 
@@ -300,12 +324,20 @@ enum ReturnStatus handle_simplyplural(
 				if(discord_status() != DiscordResult_Ok)
 				{
 					fprintf(stderr, "Discord Error: %s\r\n", discord_error());
+					free_system(&system);
+					free_fronters(fronters, num_fronters);
+					sp_destroy(&sp);
 					return ReturnStatus_Ok;
 				}
 			}
 			SLEEP_SECS(config->discord_poll_rate);
 		}
+
+		free_system(&system);
+		free_fronters(fronters, num_fronters);
 	}
+
+	sp_destroy(&sp);
 
 	return ReturnStatus_Ok;
 }
@@ -341,6 +373,8 @@ enum ReturnStatus handle_pluralkit(
 		if(num_fronters < 0)
 		{
 			fprintf(stderr, "Error fetching fronters from PluralKit.\r\n");
+			free_system(&system);
+			pk_destroy(&pk);
 			SLEEP_SECS(60);
 			continue;
 		}
@@ -363,6 +397,9 @@ enum ReturnStatus handle_pluralkit(
 			discord, config, &system, fronters, num_fronters)
 				!= ReturnStatus_Ok)
 		{
+			free_system(&system);
+			free_fronters(fronters, num_fronters);
+			pk_destroy(&pk);
 			return ReturnStatus_Error;
 		}
 
@@ -375,16 +412,23 @@ enum ReturnStatus handle_pluralkit(
 				if(discord_status() != DiscordResult_Ok)
 				{
 					fprintf(stderr, "Discord Error: %s\r\n", discord_error());
+					free_system(&system);
+					free_fronters(fronters, num_fronters);
+			pk_destroy(&pk);
 					return ReturnStatus_Ok;
 				}
 			}
 			SLEEP_SECS(config->discord_poll_rate);
 		}
+
+		free_system(&system);
+		free_fronters(fronters, num_fronters);
 	}
+
+	pk_destroy(&pk);
 
 	return ReturnStatus_Ok;
 }
-
 
 struct Arguments {
 	enum ETask {

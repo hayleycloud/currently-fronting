@@ -359,11 +359,6 @@ const int sp_get_fronters(
 	return num_fronters;
 }
 
-void sp_free_fronters(struct MemberInfo* fronters, const int num_fronters)
-{
-	free(fronters);
-}
-
 enum ReturnStatus sp_get_system_str_from(
 	char **data_out, const cJSON *system_data, const char *field_name)
 {
@@ -423,3 +418,4 @@ enum ReturnStatus sp_get_system(
 
 	return ReturnStatus_Ok;
 }
+
